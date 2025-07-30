@@ -1,0 +1,39 @@
+# Large reference files (download separately)
+reference/annotations/refgene/mm10.refGene.gtf
+
+# System files
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
+
+# Output directories
+macs2/
+peaks_output/
+bedgraph_files/
+output/
+results/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# R files
+.Rhistory
+.RData
+.Ruserdata
