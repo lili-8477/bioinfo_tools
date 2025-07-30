@@ -14,10 +14,10 @@ source activate bioinfo_env
 set -euo pipefail
 
 # === USER CONFIGURATION ===
-RENAME_TABLE="rename20828.txt"
-GENOME_SIZE_FILE="~/software/genome_ref_data/hg38.chrom.sizes"
+RENAME_TABLE="rename21004.txt"
+GENOME_SIZE_FILE="/uufs/chpc.utah.edu/common/home/u6025146/software/genome_ref_data/hg38.chrom.sizes"
 MACS2_OUTDIR="macs2"
-BEDGRAPH2BIGWIG="~/software/genome_ref_data/bedGraphToBigWig"
+BEDGRAPH2BIGWIG="/uufs/chpc.utah.edu/common/home/u6025146/software/genome_ref_data/bedGraphToBigWig"
 
 # === Create output directory ===
 mkdir -p "$MACS2_OUTDIR"
@@ -59,69 +59,64 @@ awk 'NF>=2 {gsub("\r",""); print $1, $2}' "$RENAME_TABLE" | while read -r old ne
     fi
 done
 
-echo "[Step 2] Running MACS2 in $PEAKMODE mode for chip: $CHIP..."
+echo "[Step 3] Running MACS2 in $PEAKMODE mode for chip: $CHIP..."
 
-# === Step 3: Run MACS2 ===
-# Get all unique replicate groups
-cut -f2 "$RENAME_TABLE" | awk -v chip="$CHIP" '
-{
-  split($1, parts, "_");
-  rep = parts[length(parts)];
-  base = parts[1];
-  for (i = 2; i < length(parts) - 1; i++) {
-    base = base "_" parts[i];
-  }
-  if (index($1, chip) > 0) {
-    print base, rep;
-  }
-}' | sort -u | while read -r BASE REP; do
-  TREATMENT_BAM=$(ls ${BASE}_${CHIP}_${REP}.bam 2>/dev/null || true)
-  CONTROL_BAM=$(ls ${BASE}_INPUT_${REP}.bam 2>/dev/null || true)
+# === Improved Step 3: Run MACS2 ===
+for TREATMENT_BAM in *_${CHIP}_REP*.bam; do
+  if [[ ! -f "$TREATMENT_BAM" ]]; then
+    echo "⚠️ No BAM files found for CHIP=$CHIP"
+    continue
+  fi
 
-  if [[ -n "$TREATMENT_BAM" && -n "$CONTROL_BAM" ]]; then
+  BASE=$(echo "$TREATMENT_BAM" | sed "s/_${CHIP}_REP[0-9]*\.bam//")
+  REP=$(echo "$TREATMENT_BAM" | grep -oP "REP[0-9]+")
+
+  CONTROL_BAM="${BASE}_INPUT_${REP}.bam"
+
+  if [[ -f "$CONTROL_BAM" ]]; then
     echo "✅ Running MACS2 for $TREATMENT_BAM vs $CONTROL_BAM"
-    # your MACS2 call here
-    # Derive a readable name and allow overrides for genome and thresholds
+
     OUTNAME="${BASE}_${CHIP}_${REP}"
-    GENOME="${GENOME:-hs}"        # use "hs" for human, "mm" for mouse, or an effective size (e.g., 2.7e9)
-    QVAL="${QVAL:-0.001}"          # narrow peak q-value cutoff
-    BROAD_QVAL="${BROAD_QVAL:-0.01}"  # broad peak q-value cutoff
+    GENOME="${GENOME:-hs}"        
+    QVAL="${QVAL:-0.001}"          
+    BROAD_QVAL="${BROAD_QVAL:-0.01}"
 
     if [[ "$PEAKMODE" == "narrow" ]]; then
-        macs2 callpeak \
-          -t "$TREATMENT_BAM" \
-          -c "$CONTROL_BAM" \
-          -g "$GENOME" \
-          -n "$OUTNAME" \
-          --outdir "$MACS2_OUTDIR" \
-          -B --SPMR \
-          --call-summits \
-          -q "$QVAL" \
-          --keep-dup auto \
-          2> "${MACS2_OUTDIR}/${OUTNAME}.log"
+      macs2 callpeak \
+        -t "$TREATMENT_BAM" \
+        -c "$CONTROL_BAM" \
+        -g "$GENOME" \
+        -n "$OUTNAME" \
+        --outdir "$MACS2_OUTDIR" \
+        -B --SPMR \
+        --call-summits \
+        -q "$QVAL" \
+        --keep-dup auto \
+        2> "${MACS2_OUTDIR}/${OUTNAME}.log"
 
     elif [[ "$PEAKMODE" == "broad" ]]; then
-        macs2 callpeak \
-          -t "$TREATMENT_BAM" \
-          -c "$CONTROL_BAM" \
-          -g "$GENOME" \
-          -n "$OUTNAME" \
-          --outdir "$MACS2_OUTDIR" \
-          -B --SPMR \
-          --broad \
-          --broad-cutoff "$BROAD_QVAL" \
-          --keep-dup auto \
-          2> "${MACS2_OUTDIR}/${OUTNAME}.log"
+      macs2 callpeak \
+        -t "$TREATMENT_BAM" \
+        -c "$CONTROL_BAM" \
+        -g "$GENOME" \
+        -n "$OUTNAME" \
+        --outdir "$MACS2_OUTDIR" \
+        -B --SPMR \
+        --broad \
+        --broad-cutoff "$BROAD_QVAL" \
+        --keep-dup auto \
+        2> "${MACS2_OUTDIR}/${OUTNAME}.log"
+
+    else
+      echo "❌ Unknown PEAKMODE: $PEAKMODE (expected 'narrow' or 'broad')" >&2
+      exit 1
+    fi
 
   else
-    echo "❌ Unknown PEAKMODE: $PEAKMODE (expected 'narrow' or 'broad')" >&2
-    exit 1
-  fi
-
-  else
-    echo "⚠️ Skipping ${BASE}_${CHIP}_${REP}: missing treatment or control"
+    echo "⚠️ Skipping ${TREATMENT_BAM}: missing control ${CONTROL_BAM}"
   fi
 done
+
 
 
 # === Step 4: Convert bedGraph to bigWig ===
