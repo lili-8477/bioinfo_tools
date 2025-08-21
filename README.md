@@ -10,6 +10,7 @@ bioinfo_tools/
 ├── scripts/               # Analysis scripts organized by domain
 │   ├── chipseq/          # ChIP-seq analysis tools
 │   ├── genomics/         # General genomics utilities
+│   ├── RNAseq/           # RNA-seq analysis tools
 │   └── crispr/           # CRISPR/RNA analysis tools
 ├── reference/             # Reference data and annotations
 │   ├── genome_sizes/     # Chromosome size files for various genomes
@@ -30,6 +31,9 @@ bioinfo_tools/
 - **extract_genes_position.py** - Gene position extraction with filtering
 - **extract_promoters.py** - Extract promoter regions from gene annotations
 - **bed_split_proximal_distal.py** - Split BED files into proximal/distal regions
+
+### RNAseq Analysis (`scripts/RNAseq/`)
+- **homolog_converter.py** - Convert gene symbols between mouse and human using GSEAPY Biomart
 
 ### CRISPR/RNA Analysis (`scripts/crispr/`)
 - **PFS_Scanner** - Python tool for finding target sequences in RNA with customizable pattern matching
@@ -62,6 +66,15 @@ python scripts/genomics/extract_all_genes.py annotation.gtf --output_bed genes.b
 python scripts/genomics/extract_promoters.py annotation.gtf
 ```
 
+### Gene Homolog Conversion
+```bash
+# Convert mouse genes to human
+./scripts/RNAseq/homolog_converter.py -g Actb Kif11 Tpx2 -d m2h
+
+# Convert human genes to mouse from file
+./scripts/RNAseq/homolog_converter.py -f human_genes.txt -d h2m -o mouse_orthologs.tsv
+```
+
 ### CRISPR Analysis
 ```bash
 # Run PFS scanner for target sequence identification
@@ -73,6 +86,8 @@ python PFS_Scanner.py
 
 ### Python Dependencies
 - pybedtools
+- pandas
+- gseapy (for homolog conversion)
 - argparse
 - re (standard library)
 
